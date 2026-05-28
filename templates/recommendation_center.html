@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Recommendations — GridGuardian AI{% endblock %}
+{% block page_title %}Recommendation Center{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">💡 AI Recommendation Center</div>
+  <div class="page-desc">Intelligent, context-aware grid management actions generated from live ML model outputs.</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3 animate-fade-up delay-1">
+    <div class="stat-card {{ 'cyan' if grid_score >= 75 else ('orange' if grid_score >= 50 else 'red') }}">
+      <div class="stat-label">Grid Score</div>
+      <div class="stat-value {{ 'cyan' if grid_score >= 75 else ('orange' if grid_score >= 50 else 'red') }}"
+           data-counter="{{ grid_score }}" data-decimals="1">{{ grid_score }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">{{ status_label }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-2">
+    <div class="stat-card purple">
+      <div class="stat-label">Current Demand</div>
+      <div class="stat-value purple">{{ "{:,.0f}".format(current_demand) }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">MW</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-3">
+    <div class="stat-card orange">
+      <div class="stat-label">Solar Output</div>
+      <div class="stat-value orange">{{ "{:,.0f}".format(current_solar) }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">kW</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-4">
+    <div class="stat-card green">
+      <div class="stat-label">Active Recommendations</div>
+      <div class="stat-value green" data-counter="{{ recs|length }}">{{ recs|length }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">generated now</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-robot"></i></div>
+        <div class="card-title">Live AI Recommendations</div>
+        <div class="ms-auto" style="font-size:11px;color:var(--text-muted)">Generated just now</div>
+      </div>
+      <div class="card-body-gg">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          {% for rec in recs %}
+          <div class="rec-card animate-fade-up delay-{{ loop.index }}">
+            <div class="rec-icon">{{ rec.icon }}</div>
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span class="badge-gg badge-{{ 'high' if rec.priority in ['HIGH','CRITICAL'] else ('medium' if rec.priority=='MEDIUM' else 'low') }}">
+                  {{ rec.priority }}
+                </span>
+                <span style="font-size:12px;color:var(--text-muted)">Grid Score: {{ grid_score }}/100</span>
+              </div>
+              <div class="rec-text">{{ rec.text }}</div>
+              <div class="rec-action">
+                <i class="fas fa-arrow-right"></i> {{ rec.action }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:20px;text-align:center">
+          <a href="{{ url_for('recommendation_center') }}" class="btn-outline-neon" style="font-size:12px;padding:8px 20px">
+            <i class="fas fa-sync-alt me-2"></i>Refresh Recommendations
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5 animate-fade-up delay-3">
+    <div class="glass-card mb-4">
+      <div class="card-header-gg">
+        <div class="card-icon icon-green"><i class="fas fa-heartbeat"></i></div>
+        <div class="card-title">Grid Health Overview</div>
+      </div>
+      <div class="card-body-gg">
+        <div style="text-align:center;margin-bottom:20px">
+          <div style="font-size:56px;font-weight:800;
+            background:linear-gradient(135deg,
+              {{ '#10B981' if grid_score >= 90 else ('#00E5FF' if grid_score >= 75 else ('#F59E0B' if grid_score >= 50 else '#EF4444')) }},
+              var(--purple));
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1">
+            {{ grid_score }}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:1px">/ 100 GRID HEALTH</div>
+          <div style="margin-top:8px">
+            <span class="badge-gg badge-{{ status_class }}" style="font-size:13px;padding:6px 16px">
+              {{ status_label }}
+            </span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {% set checks = [
+            ('Demand Forecasting', 'cyan',   grid_score >= 60),
+            ('Solar Generation',   'orange',  current_solar > 0),
+            ('Anomaly Detection',  'green',   True),
+            ('Grid Stability',     'purple',  grid_score >= 70),
+          ] %}
+          {% for label, color, ok in checks %}
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      padding:10px 14px;border-radius:10px;background:rgba(5,8,22,.5);
+                      border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="breathe" style="width:8px;height:8px;border-radius:50%;
+                background:{{ 'var(--green)' if ok else 'var(--red)' }};
+                box-shadow:0 0 8px {{ 'var(--green)' if ok else 'var(--red)' }}"></div>
+              <span style="font-size:13px">{{ label }}</span>
+            </div>
+            <span style="font-size:11px;color:{{ 'var(--green)' if ok else 'var(--red)' }};font-weight:700">
+              {{ 'ONLINE' if ok else 'ALERT' }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-info-circle"></i></div>
+        <div class="card-title">Priority Guide</div>
+      </div>
+      <div class="card-body-gg">
+        {% for label, desc, cls in [
+          ('CRITICAL', 'Immediate action required — grid at risk', 'high'),
+          ('HIGH',     'Action needed within the hour',             'high'),
+          ('MEDIUM',   'Address within operational window',         'medium'),
+          ('LOW',      'Informational / best-practice tip',         'low'),
+        ] %}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span class="badge-gg badge-{{ cls }}" style="width:70px;text-align:center">{{ label }}</span>
+          <span style="font-size:12px;color:var(--text-muted)">{{ desc }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if past_recs %}
+<div class="glass-card mt-4 animate-fade-up delay-3">
+  <div class="card-header-gg">
+    <div class="card-icon icon-purple"><i class="fas fa-history"></i></div>
+    <div class="card-title">Recommendation History</div>
+    <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">Last {{ past_recs|length }} entries</div>
+  </div>
+  <div class="card-body-gg" style="padding:0">
+    <div class="table-scroll">
+      <table class="table-gg">
+        <thead>
+          <tr><th>Time</th><th>Grid Score</th><th>Priority</th><th>Recommendation</th></tr>
+        </thead>
+        <tbody>
+          {% for r in past_recs %}
+          <tr>
+            <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ r.created_at }}</td>
+            <td>
+              <span style="color:{{ 'var(--green)' if r.grid_score >= 75 else ('var(--orange)' if r.grid_score >= 50 else 'var(--red)') }};font-weight:700">
+                {{ "%.1f"|format(r.grid_score) }}
+              </span>
+            </td>
+            <td><span class="badge-gg badge-{{ 'high' if r.priority in ['HIGH','CRITICAL'] else ('medium' if r.priority=='MEDIUM' else 'low') }}">{{ r.priority }}</span></td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ r.recommendation_text[:80] }}…</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

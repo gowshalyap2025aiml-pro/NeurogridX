@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Login — GridGuardian AI{% endblock %}
+{% block auth_content %}
+<div class="auth-box animate-scale-in">
+  <div class="auth-logo">
+    <div class="auth-logo-icon float-anim neon-glow"><i class="fas fa-bolt"></i></div>
+    <div>
+      <div class="auth-title">GridGuardian AI</div>
+      <div class="auth-sub">Smart Grid Intelligence Platform</div>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('login') }}" novalidate>
+    <div class="mb-3">
+      <label class="form-label-gg">Username</label>
+      <div style="position:relative">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;">
+          <i class="fas fa-user"></i>
+        </span>
+        <input type="text" name="username" class="form-control-gg" style="padding-left:36px"
+               placeholder="Enter your username" required autocomplete="username">
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="form-label-gg">Password</label>
+      <div style="position:relative">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;">
+          <i class="fas fa-lock"></i>
+        </span>
+        <input type="password" name="password" class="form-control-gg" style="padding-left:36px"
+               placeholder="Enter your password" required autocomplete="current-password">
+      </div>
+    </div>
+    <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+      <i class="fas fa-sign-in-alt me-2"></i>Access Command Center
+    </button>
+  </form>
+
+  <hr style="border-color:var(--border);margin:24px 0">
+  <p style="text-align:center;font-size:13px;color:var(--text-muted)">
+    No account?
+    <a href="{{ url_for('register') }}" style="color:var(--cyan);text-decoration:none;font-weight:600">Create one</a>
+  </p>
+</div>
+<p style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-muted)">
+  GridGuardian AI v1.0 &nbsp;•&nbsp; Powered by Machine Learning
+</p>
+{% endblock %}

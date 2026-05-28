@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Analytics — GridGuardian AI{% endblock %}
+{% block page_title %}Analytics & Insights{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">📊 Analytics & Model Performance</div>
+  <div class="page-desc">Comprehensive overview of ML model metrics, historical performance, and platform usage statistics.</div>
+</div>
+
+<!-- Usage Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3 animate-fade-up delay-1">
+    <div class="stat-card cyan">
+      <div class="stat-label">Total Forecasts</div>
+      <div class="stat-value cyan" data-counter="{{ total_forecasts }}">{{ total_forecasts }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">all time</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-2">
+    <div class="stat-card red">
+      <div class="stat-label">Anomalies Logged</div>
+      <div class="stat-value red" data-counter="{{ total_anomalies }}">{{ total_anomalies }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">detected</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-3">
+    <div class="stat-card green">
+      <div class="stat-label">Recommendations</div>
+      <div class="stat-value green" data-counter="{{ total_recs }}">{{ total_recs }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">generated</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-4">
+    <div class="stat-card purple">
+      <div class="stat-label">Best Model</div>
+      <div class="stat-value purple" style="font-size:14px;margin-top:6px">{{ best_demand or 'N/A' }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">demand forecast</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-chart-bar"></i></div>
+        <div class="card-title">Demand Model — RMSE Comparison</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container"><canvas id="demandRmseChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 animate-fade-up delay-3">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-chart-bar"></i></div>
+        <div class="card-title">Demand Model — R² Score</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container"><canvas id="demandR2Chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-chart-bar"></i></div>
+        <div class="card-title">Solar Model — RMSE Comparison</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container"><canvas id="solarRmseChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 animate-fade-up delay-3">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-green"><i class="fas fa-chart-bar"></i></div>
+        <div class="card-title">Solar Model — R² Score</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container"><canvas id="solarR2Chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if demand_metrics %}
+<div class="glass-card mb-4 animate-fade-up delay-2">
+  <div class="card-header-gg">
+    <div class="card-icon icon-cyan"><i class="fas fa-table"></i></div>
+    <div class="card-title">Demand Forecasting — Model Leaderboard</div>
+    <div class="ms-auto"><span class="model-badge"><i class="fas fa-trophy me-1"></i>{{ best_demand }}</span></div>
+  </div>
+  <div class="card-body-gg" style="padding:0">
+    <div class="table-scroll">
+      <table class="table-gg">
+        <thead>
+          <tr><th>Model</th><th>MAE (MW)</th><th>RMSE (MW)</th><th>MAPE (%)</th><th>R² Score</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for m in demand_metrics %}
+          <tr>
+            <td style="font-weight:600;color:{{ 'var(--cyan)' if m.name == best_demand else 'var(--text)' }}">
+              {{ '★ ' if m.name == best_demand else '' }}{{ m.name }}
+            </td>
+            <td style="color:var(--text-muted)">{{ "%.2f"|format(m.mae) }}</td>
+            <td style="color:var(--text-muted)">{{ "%.2f"|format(m.rmse) }}</td>
+            <td style="color:var(--text-muted)">{{ "%.4f"|format(m.mape) }}</td>
+            <td style="color:{{ 'var(--green)' if m.r2 >= 0.95 else 'var(--orange)' }};font-weight:700">
+              {{ "%.4f"|format(m.r2) }}
+            </td>
+            <td>
+              <span class="badge-gg {{ 'badge-success' if m.name == best_demand else 'badge-info' }}">
+                {{ 'SELECTED' if m.name == best_demand else 'TESTED' }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Solar Metrics Table -->
+{% if solar_metrics %}
+<div class="glass-card mb-4 animate-fade-up delay-3">
+  <div class="card-header-gg">
+    <div class="card-icon icon-orange"><i class="fas fa-table"></i></div>
+    <div class="card-title">Solar Forecasting — Model Leaderboard</div>
+    <div class="ms-auto"><span class="model-badge"><i class="fas fa-sun me-1"></i>{{ best_solar }}</span></div>
+  </div>
+  <div class="card-body-gg" style="padding:0">
+    <div class="table-scroll">
+      <table class="table-gg">
+        <thead>
+          <tr><th>Model</th><th>MAE (kW)</th><th>RMSE (kW)</th><th>R² Score</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for m in solar_metrics %}
+          <tr>
+            <td style="font-weight:600;color:{{ 'var(--orange)' if m.name == best_solar else 'var(--text)' }}">
+              {{ '★ ' if m.name == best_solar else '' }}{{ m.name }}
+            </td>
+            <td style="color:var(--text-muted)">{{ "%.2f"|format(m.mae) }}</td>
+            <td style="color:var(--text-muted)">{{ "%.2f"|format(m.rmse) }}</td>
+            <td style="color:{{ 'var(--green)' if m.r2 >= 0.95 else 'var(--orange)' }};font-weight:700">
+              {{ "%.4f"|format(m.r2) }}
+            </td>
+            <td>
+              <span class="badge-gg {{ 'badge-success' if m.name == best_solar else 'badge-info' }}">
+                {{ 'SELECTED' if m.name == best_solar else 'TESTED' }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+<div class="row g-4 mb-4">
+  <div class="col-md-6 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-list-ol"></i></div>
+        <div class="card-title">Feature Importance — Demand Model</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/feature_importance.png') }}"
+             class="chart-img" alt="Feature Importance">
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 animate-fade-up delay-3">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-trophy"></i></div>
+        <div class="card-title">Model RMSE Comparison Chart</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/model_comparison.png') }}"
+             class="chart-img" alt="Model Comparison">
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if recent_forecasts %}
+<div class="glass-card animate-fade-up delay-3">
+  <div class="card-header-gg">
+    <div class="card-icon icon-cyan"><i class="fas fa-history"></i></div>
+    <div class="card-title">Recent Forecast Activity</div>
+  </div>
+  <div class="card-body-gg" style="padding:0">
+    <div class="table-scroll">
+      <table class="table-gg">
+        <thead>
+          <tr><th>Time</th><th>Type</th><th>Prediction</th><th>Model</th></tr>
+        </thead>
+        <tbody>
+          {% for f in recent_forecasts %}
+          <tr>
+            <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ f.created_at }}</td>
+            <td><span class="badge-gg badge-info">{{ f.forecast_type }}</span></td>
+            <td style="color:var(--cyan);font-weight:600">{{ "{:,.1f}".format(f.prediction) }}</td>
+            <td style="color:var(--text-muted);font-size:12px">{{ f.model_used }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dNames = {{ d_names|safe }};
+  const dRmse  = {{ d_rmse|safe }};
+  const dR2    = {{ d_r2|safe }};
+  const sNames = {{ s_names|safe }};
+  const sRmse  = {{ s_rmse|safe }};
+  const sR2    = {{ s_r2|safe }};
+
+  const barColors = ['rgba(0,229,255,.7)', 'rgba(139,92,246,.7)', 'rgba(16,185,129,.7)'];
+  const barBorder = ['#00E5FF', '#8B5CF6', '#10B981'];
+
+  function makeBar(id, labels, data, label, unit) {
+    const ctx = document.getElementById(id);
+    if (!ctx || !labels.length) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: label + ' (' + unit + ')',
+          data,
+          backgroundColor: barColors,
+          borderColor: barBorder,
+          borderWidth: 2, borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#1E293B' }, beginAtZero: true,
+               title: { display: true, text: unit, color: '#94A3B8' } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ` ${c.parsed.y.toFixed(4)} ${unit}` } }
+        }
+      }
+    });
+  }
+
+  makeBar('demandRmseChart', dNames, dRmse, 'RMSE', 'MW');
+  makeBar('demandR2Chart',   dNames, dR2,   'R²',   '');
+  makeBar('solarRmseChart',  sNames, sRmse, 'RMSE', 'kW');
+  makeBar('solarR2Chart',    sNames, sR2,   'R²',   '');
+});
+</script>
+{% endblock %}

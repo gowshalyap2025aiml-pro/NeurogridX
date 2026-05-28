@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}GridGuardian AI{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}"/>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+
+  {% if session.user_id %}
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="fas fa-bolt"></i></div>
+      <div class="brand-text">
+        <span class="brand-name">GridGuardian</span>
+        <span class="brand-sub">AI Platform</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('dashboard') }}"
+         class="nav-item {% if request.endpoint=='dashboard' %}active{% endif %}">
+        <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('demand_forecast') }}"
+         class="nav-item {% if request.endpoint=='demand_forecast' %}active{% endif %}">
+        <i class="fas fa-chart-line"></i><span>Demand Forecast</span>
+      </a>
+      <a href="{{ url_for('renewable_forecast') }}"
+         class="nav-item {% if request.endpoint=='renewable_forecast' %}active{% endif %}">
+        <i class="fas fa-solar-panel"></i><span>Renewable Forecast</span>
+      </a>
+      <a href="{{ url_for('anomaly_detection') }}"
+         class="nav-item {% if request.endpoint=='anomaly_detection' %}active{% endif %}">
+        <i class="fas fa-exclamation-triangle"></i><span>Anomaly Detection</span>
+      </a>
+      <a href="{{ url_for('recommendation_center') }}"
+         class="nav-item {% if request.endpoint=='recommendation_center' %}active{% endif %}">
+        <i class="fas fa-lightbulb"></i><span>Recommendations</span>
+      </a>
+      <a href="{{ url_for('simulation_lab') }}"
+         class="nav-item {% if request.endpoint=='simulation_lab' %}active{% endif %}">
+        <i class="fas fa-flask"></i><span>Simulation Lab</span>
+      </a>
+      <a href="{{ url_for('analytics') }}"
+         class="nav-item {% if request.endpoint=='analytics' %}active{% endif %}">
+        <i class="fas fa-chart-bar"></i><span>Analytics</span>
+      </a>
+      <a href="{{ url_for('history') }}"
+         class="nav-item {% if request.endpoint=='history' %}active{% endif %}">
+        <i class="fas fa-history"></i><span>History</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-meta">
+          <span class="user-name">{{ session.username }}</span>
+          <span class="user-role">Grid Operator</span>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="logout-btn" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+      <div class="topbar-right">
+        <div class="live-indicator">
+          <span class="live-dot"></span>
+          <span>LIVE</span>
+        </div>
+        <div class="topbar-time" id="topbarTime"></div>
+      </div>
+    </header>
+
+    <div class="content-area">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }} alert-dismissible fade show glass-alert" role="alert">
+              <i class="fas fa-info-circle me-2"></i>{{ msg }}
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  {% else %}
+  <div class="auth-wrapper">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="width:100%;max-width:440px;margin-bottom:16px">
+          {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }} alert-dismissible fade show glass-alert" role="alert">
+              <i class="fas fa-info-circle me-2"></i>{{ msg }}
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block auth_content %}{% endblock %}
+  </div>
+  {% endif %}
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

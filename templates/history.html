@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}History — GridGuardian AI{% endblock %}
+{% block page_title %}Prediction History{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">📜 Prediction History & Logs</div>
+  <div class="page-desc">Complete record of all AI forecasts, anomaly detections, renewable predictions, and system events.</div>
+</div>
+
+<div class="glass-card mb-4 animate-fade-up delay-1">
+  <div style="padding:6px 8px;display:flex;gap:4px;flex-wrap:wrap">
+    {% for tab_id, tab_label, tab_icon in [
+      ('forecasts',  'Demand Forecasts',     'fa-chart-line'),
+      ('renewables', 'Solar Forecasts',       'fa-solar-panel'),
+      ('anomalies',  'Anomalies',             'fa-exclamation-triangle'),
+      ('logs',       'System Logs',           'fa-terminal'),
+    ] %}
+    <button onclick="switchTab('{{ tab_id }}')" id="tab-btn-{{ tab_id }}"
+            class="tab-btn {% if loop.first %}active{% endif %}"
+            style="background:{% if loop.first %}rgba(0,229,255,.12){% else %}transparent{% endif %};
+                   border:1px solid {% if loop.first %}rgba(0,229,255,.3){% else %}transparent{% endif %};
+                   color:{% if loop.first %}var(--cyan){% else %}var(--text-muted){% endif %};
+                   border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;
+                   cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px">
+      <i class="fas {{ tab_icon }}"></i>{{ tab_label }}
+      <span style="background:rgba(255,255,255,.08);border-radius:10px;padding:1px 7px;font-size:10px">
+        {% if tab_id == 'forecasts' %}{{ forecasts|length }}
+        {% elif tab_id == 'renewables' %}{{ renewables|length }}
+        {% elif tab_id == 'anomalies' %}{{ anomalies|length }}
+        {% else %}{{ logs|length }}{% endif %}
+      </span>
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div id="tab-forecasts" class="tab-content animate-fade-up delay-2">
+  <div class="glass-card">
+    <div class="card-header-gg">
+      <div class="card-icon icon-cyan"><i class="fas fa-chart-line"></i></div>
+      <div class="card-title">Demand Forecast History</div>
+      <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">{{ forecasts|length }} records</div>
+    </div>
+    <div class="card-body-gg" style="padding:0">
+      {% if forecasts %}
+      <div class="table-scroll">
+        <table class="table-gg">
+          <thead>
+            <tr><th>#</th><th>Timestamp</th><th>Type</th><th>Prediction (MW)</th><th>Model Used</th></tr>
+          </thead>
+          <tbody>
+            {% for f in forecasts %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:11px">{{ loop.index }}</td>
+              <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ f.created_at }}</td>
+              <td><span class="badge-gg badge-info">{{ f.forecast_type }}</span></td>
+              <td style="color:var(--cyan);font-weight:700;font-size:14px">{{ "{:,.1f}".format(f.prediction) }}</td>
+              <td style="font-size:12px">
+                <span class="model-badge" style="font-size:10px">{{ f.model_used or 'N/A' }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fas fa-chart-line" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block"></i>
+        No demand forecasts yet. Visit the <a href="{{ url_for('demand_forecast') }}" style="color:var(--cyan)">Demand Forecast</a> page.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="tab-renewables" class="tab-content animate-fade-up delay-2" style="display:none">
+  <div class="glass-card">
+    <div class="card-header-gg">
+      <div class="card-icon icon-orange"><i class="fas fa-solar-panel"></i></div>
+      <div class="card-title">Solar Forecast History</div>
+      <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">{{ renewables|length }} records</div>
+    </div>
+    <div class="card-body-gg" style="padding:0">
+      {% if renewables %}
+      <div class="table-scroll">
+        <table class="table-gg">
+          <thead>
+            <tr><th>#</th><th>Timestamp</th><th>Solar (kW)</th><th>Wind Est. (kW)</th><th>Renewable Score</th></tr>
+          </thead>
+          <tbody>
+            {% for r in renewables %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:11px">{{ loop.index }}</td>
+              <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ r.created_at }}</td>
+              <td style="color:var(--orange);font-weight:700">{{ "{:,.1f}".format(r.solar_forecast) }}</td>
+              <td style="color:var(--purple)">{{ "{:,.1f}".format(r.wind_estimate) }}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="progress-gg" style="flex:1">
+                    <div class="progress-bar-gg pb-green" style="width:{{ [100, r.renewable_score]|min|int }}%"></div>
+                  </div>
+                  <span style="font-size:11px;color:var(--green);width:36px">{{ "%.0f"|format(r.renewable_score) }}%</span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fas fa-solar-panel" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block"></i>
+        No solar forecasts yet. Visit <a href="{{ url_for('renewable_forecast') }}" style="color:var(--orange)">Renewable Forecast</a>.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="tab-anomalies" class="tab-content animate-fade-up delay-2" style="display:none">
+  <div class="glass-card">
+    <div class="card-header-gg">
+      <div class="card-icon icon-red"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="card-title">Anomaly Detection Log</div>
+      <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">{{ anomalies|length }} records</div>
+    </div>
+    <div class="card-body-gg" style="padding:0">
+      {% if anomalies %}
+      <div class="table-scroll">
+        <table class="table-gg">
+          <thead>
+            <tr><th>#</th><th>Timestamp</th><th>Type</th><th>Demand (MW)</th><th>Severity</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            {% for a in anomalies %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:11px">{{ loop.index }}</td>
+              <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ a.created_at }}</td>
+              <td><span class="badge-gg badge-warning">{{ a.anomaly_type }}</span></td>
+              <td style="color:var(--red);font-weight:700">{{ "{:,.1f}".format(a.demand_value) }}</td>
+              <td>
+                <span class="badge-gg badge-{{ 'high' if a.severity in ['High','Critical'] else 'medium' }}">
+                  {{ a.severity }}
+                </span>
+              </td>
+              <td style="font-size:11px;color:var(--text-muted);max-width:200px">{{ a.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fas fa-shield-check" style="font-size:32px;color:var(--green);opacity:.5;margin-bottom:12px;display:block"></i>
+        No anomalies detected. Grid is clean. Visit <a href="{{ url_for('anomaly_detection') }}" style="color:var(--red)">Anomaly Detection</a>.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div id="tab-logs" class="tab-content animate-fade-up delay-2" style="display:none">
+  <div class="glass-card">
+    <div class="card-header-gg">
+      <div class="card-icon icon-purple"><i class="fas fa-terminal"></i></div>
+      <div class="card-title">System Event Log</div>
+      <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">{{ logs|length }} events</div>
+    </div>
+    <div class="card-body-gg" style="padding:0">
+      {% if logs %}
+      <div class="table-scroll">
+        <table class="table-gg">
+          <thead>
+            <tr><th>#</th><th>Timestamp</th><th>Action</th><th>Details</th></tr>
+          </thead>
+          <tbody>
+            {% for l in logs %}
+            <tr>
+              <td style="color:var(--text-muted);font-size:11px">{{ loop.index }}</td>
+              <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">{{ l.created_at }}</td>
+              <td>
+                <span class="badge-gg badge-{{ 'info' if l.action in ['LOGIN','LOGOUT'] else ('warning' if 'ANOMALY' in l.action else 'low') }}">
+                  {{ l.action }}
+                </span>
+              </td>
+              <td style="font-size:12px;color:var(--text-muted)">{{ l.details or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fas fa-terminal" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block"></i>
+        No system logs yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(id) {
+  ['forecasts','renewables','anomalies','logs'].forEach(t => {
+    const content = document.getElementById('tab-' + t);
+    const btn     = document.getElementById('tab-btn-' + t);
+    if (!content || !btn) return;
+    if (t === id) {
+      content.style.display = 'block';
+      btn.style.background  = 'rgba(0,229,255,.12)';
+      btn.style.borderColor = 'rgba(0,229,255,.3)';
+      btn.style.color       = 'var(--cyan)';
+    } else {
+      content.style.display = 'none';
+      btn.style.background  = 'transparent';
+      btn.style.borderColor = 'transparent';
+      btn.style.color       = 'var(--text-muted)';
+    }
+  });
+}
+</script>
+{% endblock %}

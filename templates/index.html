@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}GridGuardian AI{% endblock %}
+{% block auth_content %}
+<script>window.location.href = "{{ url_for('login') }}";</script>
+{% endblock %}

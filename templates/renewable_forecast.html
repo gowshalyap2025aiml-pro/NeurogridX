@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Renewable Forecast — GridGuardian AI{% endblock %}
+{% block page_title %}Renewable Energy Forecast{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">☀️ Solar & Renewable Generation Forecast</div>
+  <div class="page-desc">Predict solar AC power output using ML models trained on real inverter generation data.</div>
+</div>
+
+<div class="row g-3 mb-4">
+  {% if metrics %}
+  {% for m in metrics %}
+  <div class="col-6 col-md-3 animate-fade-up delay-{{ loop.index }}">
+    <div class="stat-card {{ 'orange' if m.name == best_model else 'purple' }}">
+      {% if m.name == best_model %}
+      <div style="position:absolute;top:10px;right:10px">
+        <span class="badge-gg badge-success">★ BEST</span>
+      </div>
+      {% endif %}
+      <div class="stat-label">{{ m.name }}</div>
+      <div class="stat-value {{ 'orange' if m.name == best_model else 'purple' }}" style="font-size:20px">
+        R² {{ "%.4f"|format(m.r2) }}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+        RMSE: {{ "%.1f"|format(m.rmse) }} kW &nbsp;|&nbsp; MAE: {{ "%.1f"|format(m.mae) }} kW
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<div class="row g-4">
+  <!-- Form -->
+  <div class="col-lg-5 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-sliders-h"></i></div>
+        <div class="card-title">Forecast Parameters</div>
+        <div class="ms-auto"><span class="model-badge"><i class="fas fa-sun me-1"></i>{{ best_model or 'ML Model' }}</span></div>
+      </div>
+      <div class="card-body-gg">
+        <form method="POST" action="{{ url_for('renewable_forecast') }}" novalidate>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label-gg">Hour (0–23)</label>
+              <input type="number" name="hour" class="form-control-gg" min="0" max="23"
+                     value="{{ inputs.get('hour', now.hour) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Day of Month</label>
+              <input type="number" name="day" class="form-control-gg" min="1" max="31"
+                     value="{{ inputs.get('day', now.day) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Month (1–12)</label>
+              <input type="number" name="month" class="form-control-gg" min="1" max="12"
+                     value="{{ inputs.get('month', now.month) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Weekday (0=Mon)</label>
+              <input type="number" name="weekday" class="form-control-gg" min="0" max="6"
+                     value="{{ inputs.get('weekday', now.weekday()) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 1h Output (kW)</label>
+              <input type="number" name="lag_1h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('lag_1h', solar_stats.current_solar|round|int if solar_stats else 2000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 24h Output (kW)</label>
+              <input type="number" name="lag_24h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('lag_24h', solar_stats.current_solar|round|int if solar_stats else 2000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Mean 3h (kW)</label>
+              <input type="number" name="roll_mean_3h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('roll_mean_3h', solar_stats.current_solar|round|int if solar_stats else 2000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Panel Efficiency (0–1)</label>
+              <input type="number" name="efficiency" class="form-control-gg" step="0.01" min="0" max="1"
+                     value="{{ inputs.get('efficiency', '0.85') }}" required>
+            </div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+              <i class="fas fa-sun me-2"></i>Predict Solar Output
+            </button>
+          </div>
+        </form>
+
+        {% if solar_stats %}
+        <div class="row g-2 mt-3">
+          <div class="col-6">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--orange)">{{ "{:,.0f}".format(solar_stats.current_solar) }}</div>
+              <div class="metric-name">Current kW</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--green)">{{ "{:,.0f}".format(solar_stats.avg_solar) }}</div>
+              <div class="metric-name">Avg kW</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--cyan)">{{ "{:,.0f}".format(solar_stats.max_solar) }}</div>
+              <div class="metric-name">Peak kW</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--purple)">{{ "{:,.0f}".format(solar_stats.forecast_solar) }}</div>
+              <div class="metric-name">Forecast kW</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    {% if prediction is not none %}
+    <div class="result-box animate-scale-in mb-4">
+      <div style="font-size:12px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">
+        <i class="fas fa-solar-panel me-2"></i>Predicted Solar AC Output
+      </div>
+      <div class="result-val" style="background:linear-gradient(135deg,var(--orange),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+        {{ "{:,.1f}".format(prediction) }}
+      </div>
+      <div class="result-unit">Kilowatts (kW)</div>
+
+      <div style="margin-top:16px;display:flex;justify-content:center;gap:24px;font-size:12px">
+        {% if solar_stats %}
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">vs Average</div>
+          <div style="color:{{ 'var(--green)' if prediction >= solar_stats.avg_solar else 'var(--red)' }};font-weight:700">
+            {{ "%+.1f"|format(prediction - solar_stats.avg_solar) }} kW
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">Capacity Factor</div>
+          <div style="color:var(--cyan);font-weight:700">
+            {{ "%.1f"|format(prediction / (solar_stats.max_solar + 0.001) * 100) }}%
+          </div>
+        </div>
+        {% endif %}
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">Wind Estimate</div>
+          <div style="color:var(--purple);font-weight:700">{{ "{:,.0f}".format(prediction * 0.3) }} kW</div>
+        </div>
+      </div>
+
+      {% if solar_stats %}
+      <div style="margin-top:16px;padding:0 20px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Capacity Utilisation</div>
+        <div class="gauge-bar">
+          <div class="gauge-fill" style="width:{{ [100, prediction / (solar_stats.max_solar + 0.001) * 100]|min|int }}%;background:linear-gradient(90deg,var(--orange),var(--green))"></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="glass-card mb-4 animate-fade-up delay-3">
+      <div class="card-body-gg" style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:16px;opacity:.4"><i class="fas fa-sun"></i></div>
+        <div style="color:var(--text-muted);font-size:14px">Configure parameters and click <strong style="color:var(--orange)">Predict Solar Output</strong></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="glass-card animate-fade-up delay-4 mb-4">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-chart-area"></i></div>
+        <div class="card-title">Solar Generation Forecast — Last 48 Periods</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/renewable_forecast.png') }}"
+             class="chart-img" alt="Renewable Forecast">
+      </div>
+    </div>
+
+    <div class="glass-card animate-fade-up delay-5">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-clock"></i></div>
+        <div class="card-title">Solar Generation Daily Profile</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/solar_profile.png') }}"
+             class="chart-img" alt="Solar Profile">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

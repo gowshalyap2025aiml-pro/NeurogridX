@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Demand Forecast — GridGuardian AI{% endblock %}
+{% block page_title %}Demand Forecasting{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">⚡ Electricity Demand Forecast</div>
+  <div class="page-desc">AI-powered next-hour demand prediction using {{ best_model or 'ML' }} model trained on 120,000+ historical records.</div>
+</div>
+
+<!-- Model Metrics Row -->
+<div class="row g-3 mb-4">
+  {% if metrics %}
+  {% for m in metrics %}
+  <div class="col-6 col-md-3 animate-fade-up delay-{{ loop.index }}">
+    <div class="stat-card {{ 'cyan' if m.name == best_model else 'purple' }}" style="position:relative">
+      {% if m.name == best_model %}
+      <div style="position:absolute;top:10px;right:10px">
+        <span class="badge-gg badge-success">★ BEST</span>
+      </div>
+      {% endif %}
+      <div class="stat-label">{{ m.name }}</div>
+      <div class="stat-value {{ 'cyan' if m.name == best_model else 'purple' }}" style="font-size:20px">
+        R² {{ "%.4f"|format(m.r2) }}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+        RMSE: {{ "%.1f"|format(m.rmse) }} MW &nbsp;|&nbsp; MAE: {{ "%.1f"|format(m.mae) }} MW
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">MAPE: {{ "%.2f"|format(m.mape) }}%</div>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="col-12">
+    <div class="glass-card"><div class="card-body-gg" style="color:var(--text-muted)">
+      No model metrics found. Run <code>python train_model.py</code> first.
+    </div></div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-4">
+  <!-- Prediction Form -->
+  <div class="col-lg-5 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-sliders-h"></i></div>
+        <div class="card-title">Forecast Parameters</div>
+        <div class="ms-auto"><span class="model-badge"><i class="fas fa-robot me-1"></i>{{ best_model or 'ML Model' }}</span></div>
+      </div>
+      <div class="card-body-gg">
+        <form method="POST" action="{{ url_for('demand_forecast') }}" novalidate>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label-gg">Hour (0–23)</label>
+              <input type="number" name="hour" class="form-control-gg" min="0" max="23"
+                     value="{{ inputs.get('hour', now.hour) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Day of Month</label>
+              <input type="number" name="day" class="form-control-gg" min="1" max="31"
+                     value="{{ inputs.get('day', now.day) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Weekday (0=Mon)</label>
+              <input type="number" name="weekday" class="form-control-gg" min="0" max="6"
+                     value="{{ inputs.get('weekday', now.weekday()) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Month (1–12)</label>
+              <input type="number" name="month" class="form-control-gg" min="1" max="12"
+                     value="{{ inputs.get('month', now.month) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 1h Demand (MW)</label>
+              <input type="number" name="lag_1h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('lag_1h', demand_stats.current_demand|round|int if demand_stats else 14000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 24h Demand (MW)</label>
+              <input type="number" name="lag_24h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('lag_24h', demand_stats.current_demand|round|int if demand_stats else 14000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 168h Demand (MW)</label>
+              <input type="number" name="lag_168h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('lag_168h', demand_stats.current_demand|round|int if demand_stats else 14000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Mean 6h (MW)</label>
+              <input type="number" name="roll_mean_6h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('roll_mean_6h', demand_stats.current_demand|round|int if demand_stats else 14000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Mean 24h (MW)</label>
+              <input type="number" name="roll_mean_24h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('roll_mean_24h', demand_stats.current_demand|round|int if demand_stats else 14000) }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Std 24h (MW)</label>
+              <input type="number" name="roll_std_24h" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('roll_std_24h', 300) }}" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label-gg">Demand Change (MW/h)</label>
+              <input type="number" name="demand_change" class="form-control-gg" step="0.1"
+                     value="{{ inputs.get('demand_change', 0) }}" required>
+            </div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+              <i class="fas fa-brain me-2"></i>Generate Forecast
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result + Chart -->
+  <div class="col-lg-7">
+    {% if prediction %}
+    <div class="result-box animate-scale-in mb-4">
+      <div style="font-size:12px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">
+        <i class="fas fa-bolt me-2"></i>Predicted Demand
+      </div>
+      <div class="result-val">{{ "{:,.1f}".format(prediction) }}</div>
+      <div class="result-unit">Megawatts (MW)</div>
+      <div style="margin-top:16px;display:flex;justify-content:center;gap:24px;font-size:12px">
+        {% if demand_stats %}
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">vs Current</div>
+          <div style="color:{{ 'var(--red)' if prediction > demand_stats.current_demand else 'var(--green)' }};font-weight:700">
+            {{ "%+.1f"|format(prediction - demand_stats.current_demand) }} MW
+            ({{ "%+.1f"|format((prediction - demand_stats.current_demand) / demand_stats.current_demand * 100) }}%)
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">Status</div>
+          <div style="color:{{ 'var(--red)' if prediction > demand_stats.max_demand * 0.9 else 'var(--green)' }};font-weight:700">
+            {{ 'High Load' if prediction > demand_stats.max_demand * 0.9 else 'Normal Load' }}
+          </div>
+        </div>
+        {% endif %}
+        <div style="text-align:center">
+          <div style="color:var(--text-muted)">Model</div>
+          <div style="color:var(--cyan);font-weight:700">{{ best_model }}</div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="glass-card mb-4 animate-fade-up delay-3">
+      <div class="card-body-gg" style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:16px;opacity:.4"><i class="fas fa-chart-line"></i></div>
+        <div style="color:var(--text-muted);font-size:14px">Fill in the parameters and click <strong style="color:var(--cyan)">Generate Forecast</strong> to see AI predictions.</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Forecast Chart -->
+    <div class="glass-card animate-fade-up delay-4">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-image"></i></div>
+        <div class="card-title">Forecast vs Actual — Last 48 Hours</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/demand_forecast.png') }}"
+             class="chart-img" alt="Demand Forecast Chart">
+      </div>
+    </div>
+
+    <!-- Model Comparison Chart -->
+    <div class="glass-card animate-fade-up delay-5 mt-4">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-trophy"></i></div>
+        <div class="card-title">Model Performance Comparison</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/model_comparison.png') }}"
+             class="chart-img" alt="Model Comparison">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Additional Charts Row -->
+<div class="row g-4 mt-2">
+  <div class="col-md-6 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-clock"></i></div>
+        <div class="card-title">Hourly Demand Profile</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/hourly_profile.png') }}"
+             class="chart-img" alt="Hourly Profile">
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 animate-fade-up delay-3">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-chart-bar"></i></div>
+        <div class="card-title">Demand Distribution</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/demand_distribution.png') }}"
+             class="chart-img" alt="Demand Distribution">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

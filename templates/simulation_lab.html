@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Simulation Lab — GridGuardian AI{% endblock %}
+{% block page_title %}What-If Simulation Lab{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/simulation.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">🧪 What-If Simulation Lab</div>
+  <div class="page-desc">Modify grid parameters and instantly see how AI models predict demand, renewable output, and grid health.</div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-flask"></i></div>
+        <div class="card-title">Simulation Controls</div>
+      </div>
+      <div class="card-body-gg">
+        <form method="POST" action="{{ url_for('simulation_lab') }}" id="simForm" novalidate>
+
+          <div class="mb-4">
+            <div class="sim-slider-label">
+              <span>Base Demand (MW)</span>
+              <span style="color:var(--cyan);font-weight:700">{{ "{:,.0f}".format(base_vals.base_demand) }} MW</span>
+            </div>
+            <input type="hidden" name="base_demand" value="{{ base_vals.base_demand }}">
+            <div class="progress-gg" style="height:8px">
+              <div class="progress-bar-gg pb-cyan" style="width:70%"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Reference baseline from training data</div>
+          </div>
+
+          <div class="mb-4">
+            <div class="sim-slider-label">
+              <span>Demand Growth (%)</span>
+              <span id="demandGrowthVal" class="sim-slider-val" style="font-size:14px">{{ sim_result.demand_growth if sim_result else 0 }}%</span>
+            </div>
+            <input type="range" id="demandGrowth" name="demand_growth" class="sim-slider"
+                   min="-30" max="50" step="1" value="{{ sim_result.demand_growth if sim_result else 0 }}">
+            <div class="sim-slider-label" style="margin-top:4px">
+              <span style="color:var(--green)">-30% (Low)</span>
+              <span style="color:var(--red)">+50% (Surge)</span>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="sim-slider-label">
+              <span>Ambient Temperature (°C)</span>
+              <span id="temperatureVal" class="sim-slider-val" style="font-size:14px">{{ sim_result.temperature if sim_result else 25 }}°C</span>
+            </div>
+            <input type="range" id="temperature" name="temperature" class="sim-slider"
+                   min="-10" max="50" step="1" value="{{ sim_result.temperature if sim_result else 25 }}">
+            <div class="sim-slider-label" style="margin-top:4px">
+              <span>-10°C</span><span>50°C</span>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="sim-slider-label">
+              <span>Renewable Share (%)</span>
+              <span id="renewablePctVal" class="sim-slider-val" style="font-size:14px">{{ sim_result.renewable_pct if sim_result else 30 }}%</span>
+            </div>
+            <input type="range" id="renewablePct" name="renewable_pct" class="sim-slider"
+                   min="0" max="100" step="5" value="{{ sim_result.renewable_pct if sim_result else 30 }}">
+            <div class="sim-slider-label" style="margin-top:4px">
+              <span>0%</span><span style="color:var(--green)">100% Renewable</span>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="sim-slider-label">
+              <span>Simulation Hour</span>
+              <span id="simHourVal" class="sim-slider-val" style="font-size:14px">00:00</span>
+            </div>
+            <input type="range" id="simHour" name="hour" class="sim-slider"
+                   min="0" max="23" step="1" value="12">
+            <div class="sim-slider-label" style="margin-top:4px">
+              <span>00:00 (Midnight)</span><span>23:00</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+            <i class="fas fa-play me-2"></i>Run Simulation
+          </button>
+          <a href="{{ url_for('simulation_lab') }}" class="btn-outline-neon w-100 mt-2" style="font-size:13px;padding:10px;display:block;text-align:center;text-decoration:none">
+            <i class="fas fa-redo me-2"></i>Reset
+          </a>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    {% if sim_result %}
+    <!-- Score Gauge -->
+    <div class="glass-card mb-4 animate-scale-in" style="border-color:rgba(0,229,255,.25)">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-tachometer-alt"></i></div>
+        <div class="card-title">Simulation Results</div>
+        <div class="ms-auto">
+          <span class="badge-gg badge-{{ sim_result.sim_class }}" style="font-size:12px;padding:5px 12px">
+            {{ sim_result.sim_status }}
+          </span>
+        </div>
+      </div>
+      <div class="card-body-gg">
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <div style="position:relative;height:160px">
+              <canvas id="simGauge"></canvas>
+              <div id="simScoreVal" data-score="{{ sim_result.sim_score }}"
+                   style="position:absolute;inset:0;display:flex;flex-direction:column;
+                          align-items:center;justify-content:center">
+                <div style="font-size:28px;font-weight:800;
+                  color:{{ '#10B981' if sim_result.sim_score >= 90 else ('#00E5FF' if sim_result.sim_score >= 75 else ('#F59E0B' if sim_result.sim_score >= 50 else '#EF4444')) }}">
+                  {{ sim_result.sim_score }}
+                </div>
+                <div style="font-size:10px;color:var(--text-muted)">GRID SCORE</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="display:flex;flex-direction:column;gap:12px;height:160px;justify-content:center">
+              <div class="metric-item">
+                <div class="metric-val" style="color:var(--purple)">{{ "{:,.0f}".format(sim_result.sim_demand) }} MW</div>
+                <div class="metric-name">Sim. Demand</div>
+              </div>
+              <div class="metric-item">
+                <div class="metric-val" style="color:var(--orange)">{{ "{:,.0f}".format(sim_result.sim_solar) }} kW</div>
+                <div class="metric-name">Sim. Solar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-2">
+          {% set params = [
+            ('Demand Growth',  sim_result.demand_growth|string + '%',  'cyan'),
+            ('Temperature',    sim_result.temperature|string + '°C',   'orange'),
+            ('Renewable Mix',  sim_result.renewable_pct|string + '%',  'green'),
+            ('Anomalies Est.', sim_result.sim_anomalies|string,        'red' if sim_result.sim_anomalies > 10 else 'green'),
+          ] %}
+          {% for label, val, color in params %}
+          <div class="col-6 col-md-3">
+            <div style="padding:10px;border-radius:10px;background:rgba(5,8,22,.5);
+                        border:1px solid var(--border);text-align:center">
+              <div style="font-size:16px;font-weight:700;color:var(--{{ color }})">{{ val }}</div>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">{{ label }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card animate-fade-up delay-2">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-lightbulb"></i></div>
+        <div class="card-title">Simulated Recommendations</div>
+      </div>
+      <div class="card-body-gg">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {% for rec in sim_result.sim_recs %}
+          <div class="rec-card">
+            <div class="rec-icon">{{ rec.icon }}</div>
+            <div>
+              <span class="badge-gg badge-{{ 'high' if rec.priority in ['HIGH','CRITICAL'] else ('medium' if rec.priority=='MEDIUM' else 'low') }} me-2">
+                {{ rec.priority }}
+              </span>
+              <span class="rec-text">{{ rec.text }}</span>
+              <div class="rec-action"><i class="fas fa-arrow-right"></i> {{ rec.action }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="glass-card h-100 animate-fade-up delay-3">
+      <div class="card-body-gg" style="display:flex;flex-direction:column;align-items:center;
+                                       justify-content:center;min-height:400px;text-align:center">
+        <div style="font-size:72px;margin-bottom:20px;opacity:.3"><i class="fas fa-flask"></i></div>
+        <div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px">Ready to Simulate</div>
+        <div style="color:var(--text-muted);font-size:14px;max-width:320px">
+          Adjust the sliders on the left and click <strong style="color:var(--cyan)">Run Simulation</strong>
+          to explore how grid conditions change under different scenarios.
+        </div>
+        <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+          {% for label, g, t, r in [
+            ('Heatwave',     20, 45, 20),
+            ('Grid Surplus', -10, 22, 80),
+            ('Peak Crisis',  40, 35, 10),
+          ] %}
+          <button type="button" class="btn-outline-neon" style="font-size:12px;padding:8px 16px"
+                  onclick="applyScenario({{ g }}, {{ t }}, {{ r }})">
+            <i class="fas fa-bolt me-1"></i>{{ label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function applyScenario(growth, temp, renewable) {
+  document.getElementById('demandGrowth').value = growth;
+  document.getElementById('temperature').value  = temp;
+  document.getElementById('renewablePct').value = renewable;
+  document.getElementById('demandGrowthVal').textContent = growth + '%';
+  document.getElementById('temperatureVal').textContent  = temp + '°C';
+  document.getElementById('renewablePctVal').textContent = renewable + '%';
+}
+</script>
+{% endblock %}

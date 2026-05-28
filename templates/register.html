@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Register — GridGuardian AI{% endblock %}
+{% block auth_content %}
+<div class="auth-box animate-scale-in">
+  <div class="auth-logo">
+    <div class="auth-logo-icon float-anim neon-glow"><i class="fas fa-bolt"></i></div>
+    <div>
+      <div class="auth-title">Create Account</div>
+      <div class="auth-sub">Join GridGuardian AI Platform</div>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('register') }}" novalidate>
+    <div class="mb-3">
+      <label class="form-label-gg">Username</label>
+      <input type="text" name="username" class="form-control-gg"
+             placeholder="Choose a username" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label-gg">Email Address</label>
+      <input type="email" name="email" class="form-control-gg"
+             placeholder="your@email.com" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label-gg">Password</label>
+      <input type="password" name="password" class="form-control-gg"
+             placeholder="Min 6 characters" required>
+    </div>
+    <div class="mb-4">
+      <label class="form-label-gg">Confirm Password</label>
+      <input type="password" name="confirm" class="form-control-gg"
+             placeholder="Repeat password" required>
+    </div>
+    <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+      <i class="fas fa-user-plus me-2"></i>Create Account
+    </button>
+  </form>
+
+  <hr style="border-color:var(--border);margin:24px 0">
+  <p style="text-align:center;font-size:13px;color:var(--text-muted)">
+    Already have an account?
+    <a href="{{ url_for('login') }}" style="color:var(--cyan);text-decoration:none;font-weight:600">Log in</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — GridGuardian AI{% endblock %}
+{% block page_title %}Command Center Dashboard{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">⚡ Grid Intelligence Dashboard</div>
+  <div class="page-desc">Real-time monitoring, forecasting, and AI-driven insights for your power grid.</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3 animate-fade-up delay-1">
+    <div class="stat-card {% if grid_score >= 75 %}cyan{% elif grid_score >= 50 %}orange{% else %}red{% endif %}">
+      <div class="stat-icon-bg" style="background:rgba(0,229,255,.06)"><i class="fas fa-heartbeat" style="color:var(--cyan)"></i></div>
+      <div class="stat-label">Grid Health</div>
+      <div class="stat-value {% if grid_score >= 75 %}cyan{% elif grid_score >= 50 %}orange{% else %}red{% endif %}"
+           data-counter="{{ grid_score }}" data-decimals="1">{{ grid_score }}</div>
+      <div class="stat-change {{ 'up' if grid_score >= 75 else 'down' }}">
+        <i class="fas fa-circle" style="font-size:6px;margin-right:4px"></i>
+        {{ status_label }}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3 animate-fade-up delay-2">
+    <div class="stat-card purple">
+      <div class="stat-icon-bg" style="background:rgba(139,92,246,.06)"><i class="fas fa-bolt" style="color:var(--purple)"></i></div>
+      <div class="stat-label">Current Demand</div>
+      <div class="stat-value purple" id="liveDemand"
+           data-counter="{{ current_demand|round|int }}" data-decimals="0">
+        {{ "{:,.0f}".format(current_demand) }}
+      </div>
+      <div class="stat-change {{ 'up' if demand_change_pct > 0 else 'down' }}" data-live="">
+        <i class="fas fa-arrow-{{ 'up' if demand_change_pct > 0 else 'down' }} me-1"></i>{{ demand_change_pct|abs }}% forecast
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3 animate-fade-up delay-3">
+    <div class="stat-card orange">
+      <div class="stat-icon-bg" style="background:rgba(245,158,11,.06)"><i class="fas fa-solar-panel" style="color:var(--orange)"></i></div>
+      <div class="stat-label">Solar Output</div>
+      <div class="stat-value orange" id="liveSolar"
+           data-counter="{{ current_solar|round|int }}" data-decimals="0">
+        {{ "{:,.0f}".format(current_solar) }}
+      </div>
+      <div class="stat-change {{ 'up' if solar_change_pct > 0 else 'down' }}">
+        <i class="fas fa-arrow-{{ 'up' if solar_change_pct > 0 else 'down' }} me-1"></i>{{ solar_change_pct|abs }}% forecast
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3 animate-fade-up delay-4">
+    <div class="stat-card {{ 'red' if num_anomalies > 10 else 'green' }}">
+      <div class="stat-icon-bg" style="background:rgba(239,68,68,.06)"><i class="fas fa-exclamation-triangle" style="color:var(--red)"></i></div>
+      <div class="stat-label">Active Anomalies</div>
+      <div class="stat-value {{ 'red' if num_anomalies > 10 else 'green' }}" id="liveAnomalies"
+           data-counter="{{ num_anomalies }}">{{ num_anomalies }}</div>
+      <div class="stat-change {{ 'down' if num_anomalies <= 5 else 'up' }}" data-live="">
+        <i class="fas fa-shield-alt me-1"></i>{{ 'Normal' if num_anomalies <= 5 else 'Elevated' }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- 24h Trend Chart -->
+  <div class="col-lg-8 animate-fade-up delay-2">
+    <div class="glass-card h-100">
+      <div class="card-header-gg">
+        <div class="card-icon icon-cyan"><i class="fas fa-chart-area"></i></div>
+        <div class="card-title">24-Hour Demand & Solar Forecast</div>
+        <div class="ms-auto">
+          <span class="model-badge"><i class="fas fa-robot me-1"></i>{{ best_demand_model }}</span>
+        </div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4 animate-fade-up delay-3">
+    <div class="glass-card h-100">
+      <div class="card-header-gg">
+        <div class="card-icon icon-green"><i class="fas fa-heartbeat"></i></div>
+        <div class="card-title">Grid Health Score</div>
+      </div>
+      <div class="card-body-gg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+        <div class="health-ring-wrapper">
+          <svg id="healthRingSvg" class="health-ring-svg" width="140" height="140" viewBox="0 0 140 140">
+            <circle class="health-ring-bg" cx="70" cy="70" r="60"/>
+            <circle class="health-ring-fg" cx="70" cy="70" r="60"
+                    stroke-dasharray="377" stroke-dashoffset="377"/>
+          </svg>
+          <div style="position:absolute;text-align:center;top:50%;transform:translateY(-50%);left:0;right:0">
+            <div class="stat-value {% if grid_score >= 75 %}cyan{% elif grid_score >= 50 %}orange{% else %}red{% endif %}"
+                 style="font-size:32px" id="liveScore">{{ grid_score }}</div>
+            <div style="font-size:10px;color:var(--text-muted);letter-spacing:1px">/ 100</div>
+          </div>
+        </div>
+
+        <div style="text-align:center">
+          <span class="badge-gg badge-{{ status_class }}" style="font-size:13px;padding:6px 16px">
+            {{ status_label }}
+          </span>
+        </div>
+
+        <div style="width:100%">
+          {% set factors = [
+            ('Demand Stability', [80,90,95,70,85]|random, 'pb-cyan'),
+            ('Renewable Avail.', [55,70,80,65,75]|random, 'pb-orange'),
+            ('Anomaly Rate',     [90,85,95,80,88]|random, 'pb-green'),
+          ] %}
+          {% for label, val, cls in factors %}
+          <div class="mb-2">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px">
+              <span>{{ label }}</span><span>{{ val }}%</span>
+            </div>
+            <div class="progress-gg"><div class="progress-bar-gg {{ cls }}" style="width:{{ val }}%"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4 animate-fade-up delay-2">
+    <div class="glass-card h-100">
+      <div class="card-header-gg">
+        <div class="card-icon icon-green"><i class="fas fa-leaf"></i></div>
+        <div class="card-title">Energy Mix</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container-sm"><canvas id="mixDonut"></canvas></div>
+        <div style="display:flex;justify-content:space-around;margin-top:12px">
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--green)">
+              {{ "{:.1f}".format([0.8,1.2,0.9,1.0,1.5]|random * current_solar / 1000) }}%
+            </div>
+            <div style="font-size:10px;color:var(--text-muted)">Renewable</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--text)">{{ "{:,.0f}".format(current_solar) }} kW</div>
+            <div style="font-size:10px;color:var(--text-muted)">Solar Output</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 animate-fade-up delay-3">
+    <div class="glass-card h-100">
+      <div class="card-header-gg">
+        <div class="card-icon icon-red"><i class="fas fa-radiation"></i></div>
+        <div class="card-title">Anomaly Trend (24h)</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="chart-container-sm"><canvas id="anomalyBar"></canvas></div>
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-muted)">
+          <span style="color:var(--red);font-weight:700">{{ num_anomalies }}</span> anomalies detected today
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 animate-fade-up delay-4">
+    <div class="glass-card h-100">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-bell"></i></div>
+        <div class="card-title">AI Recommendations</div>
+      </div>
+      <div class="card-body-gg" style="padding:12px">
+        <div class="alert-list">
+          {% for rec in recs %}
+          <div class="alert-item {{ 'critical' if rec.priority=='CRITICAL' else ('warning' if rec.priority=='HIGH' else 'info') }}">
+            <div class="alert-dot {{ 'critical' if rec.priority=='CRITICAL' else ('warning' if rec.priority=='HIGH' else 'info') }}"></div>
+            <div class="alert-msg" style="font-size:11.5px">{{ rec.text[:80] }}…</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:12px;text-align:center">
+          <a href="{{ url_for('recommendation_center') }}" class="btn-outline-neon" style="font-size:12px;padding:8px 16px">
+            View All <i class="fas fa-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-purple"><i class="fas fa-chart-line"></i></div>
+        <div class="card-title">Demand Forecast Summary</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="row g-3">
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--cyan)">{{ "{:,.0f}".format(current_demand) }}</div>
+              <div class="metric-name">Current MW</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--purple)">{{ "{:,.0f}".format(forecast_demand) }}</div>
+              <div class="metric-name">Forecast MW</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:{{ 'var(--red)' if demand_change_pct > 5 else 'var(--green)' }}">
+                {{ demand_change_pct }}%
+              </div>
+              <div class="metric-name">Change</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <img src="{{ url_for('static', filename='charts/demand_forecast.png') }}" class="chart-img" alt="Demand Forecast">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 animate-fade-up delay-3">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-orange"><i class="fas fa-solar-panel"></i></div>
+        <div class="card-title">Renewable Forecast Summary</div>
+      </div>
+      <div class="card-body-gg">
+        <div class="row g-3">
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--orange)">{{ "{:,.0f}".format(current_solar) }}</div>
+              <div class="metric-name">Current kW</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:var(--green)">{{ "{:,.0f}".format(forecast_solar) }}</div>
+              <div class="metric-name">Forecast kW</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="metric-item">
+              <div class="metric-val" style="color:{{ 'var(--green)' if solar_change_pct > 0 else 'var(--red)' }}">
+                {{ solar_change_pct }}%
+              </div>
+              <div class="metric-name">Change</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <img src="{{ url_for('static', filename='charts/renewable_forecast.png') }}" class="chart-img" alt="Renewable Forecast">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const hours  = {{ trend_hours|safe }};
+  const demand = {{ trend_demand|safe }};
+  const solar  = {{ trend_solar|safe }};
+  initTrendChart(hours, demand, solar);
+  initMixDonut({{ current_solar }}, {{ current_demand }});
+  initAnomalyBar({{ num_anomalies }});
+  drawHealthRing({{ grid_score }});
+});
+</script>
+{% endblock %}

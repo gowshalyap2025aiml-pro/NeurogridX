@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Anomaly Detection — GridGuardian AI{% endblock %}
+{% block page_title %}Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="page-header animate-fade-up">
+  <div class="page-title">🚨 Grid Anomaly Detection</div>
+  <div class="page-desc">Isolation Forest model detects unusual demand patterns, sudden spikes, and overload risks in real time.</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3 animate-fade-up delay-1">
+    <div class="stat-card red">
+      <div class="stat-label">Anomalies Found</div>
+      <div class="stat-value red" data-counter="{{ anomaly_stats.num_anomalies }}">{{ anomaly_stats.num_anomalies }}</div>
+      <div style="font-size:11px;color:var(--text-muted)">in last 500 samples</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-2">
+    <div class="stat-card orange">
+      <div class="stat-label">Anomaly Rate</div>
+      <div class="stat-value orange" data-counter="{{ (anomaly_stats.anomaly_rate * 100)|round(2) }}" data-decimals="2">
+        {{ "%.2f"|format(anomaly_stats.anomaly_rate * 100) }}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">% of traffic</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-3">
+    <div class="stat-card green">
+      <div class="stat-label">Normal Samples</div>
+      <div class="stat-value green" data-counter="{{ anomaly_stats.total - anomaly_stats.num_anomalies }}">
+        {{ anomaly_stats.total - anomaly_stats.num_anomalies }}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">out of {{ anomaly_stats.total }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 animate-fade-up delay-4">
+    <div class="stat-card cyan">
+      <div class="stat-label">Detection Model</div>
+      <div class="stat-value cyan" style="font-size:13px;font-weight:700;margin-top:6px">Isolation Forest</div>
+      <div style="font-size:11px;color:var(--text-muted)">contamination=5%</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Detection Form -->
+  <div class="col-lg-5 animate-fade-up delay-2">
+    <div class="glass-card">
+      <div class="card-header-gg">
+        <div class="card-icon icon-red"><i class="fas fa-search"></i></div>
+        <div class="card-title">Detect Anomaly in Sample</div>
+      </div>
+      <div class="card-body-gg">
+        <form method="POST" action="{{ url_for('anomaly_detection') }}" novalidate>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label-gg">Current Demand (MW)</label>
+              <input type="number" name="demand_mw" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('demand_mw', '14000') }}" required>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Try a large spike like 25000 to trigger anomaly</div>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 1h (MW)</label>
+              <input type="number" name="lag_1h" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('lag_1h', '14000') }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Lag 24h (MW)</label>
+              <input type="number" name="lag_24h" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('lag_24h', '14000') }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Mean 24h (MW)</label>
+              <input type="number" name="roll_mean_24h" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('roll_mean_24h', '14000') }}" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label-gg">Rolling Std 24h (MW)</label>
+              <input type="number" name="roll_std_24h" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('roll_std_24h', '300') }}" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label-gg">Demand Change (MW/h)</label>
+              <input type="number" name="demand_change" class="form-control-gg" step="0.1"
+                     value="{{ request.form.get('demand_change', '0') }}" required>
+            </div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="submit" class="btn-neon w-100" style="font-size:14px;padding:12px">
+              <i class="fas fa-radar me-2"></i>Scan for Anomaly
+            </button>
+          </div>
+        </form>
+
+        <!-- Test Presets -->
+        <div style="margin-top:16px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Quick Test Scenarios</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="loadPreset('normal')" class="btn-outline-neon" style="font-size:11px;padding:6px 12px">Normal Load</button>
+            <button onclick="loadPreset('spike')"  class="btn-outline-neon" style="font-size:11px;padding:6px 12px;border-color:var(--red);color:var(--red)">Demand Spike</button>
+            <button onclick="loadPreset('drop')"   class="btn-outline-neon" style="font-size:11px;padding:6px 12px;border-color:var(--orange);color:var(--orange)">Sudden Drop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    {% if result %}
+    <div class="glass-card animate-scale-in mb-4" style="border-color:{{ 'rgba(239,68,68,.5)' if result.is_anomaly else 'rgba(16,185,129,.4)' }}">
+      <div class="card-body-gg" style="text-align:center;padding:32px">
+        <div style="font-size:64px;margin-bottom:12px" class="{{ 'anomaly-detected' if result.is_anomaly else 'anomaly-normal' }}">
+          {{ '🚨' if result.is_anomaly else '✅' }}
+        </div>
+        <div style="font-size:22px;font-weight:700;color:{{ 'var(--red)' if result.is_anomaly else 'var(--green)' }};margin-bottom:6px">
+          {{ 'ANOMALY DETECTED' if result.is_anomaly else 'NORMAL OPERATION' }}
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">
+          Demand: <strong style="color:var(--text)">{{ "{:,.1f}".format(result.demand_mw) }} MW</strong> &nbsp;|&nbsp;
+          Score: <strong style="color:var(--cyan)">{{ result.score }}</strong> &nbsp;|&nbsp;
+          Severity: <span class="badge-gg badge-{{ 'high' if result.severity in ['High','Critical'] else ('medium' if result.severity=='Medium' else 'low') }}">
+            {{ result.severity }}
+          </span>
+        </div>
+
+        {% if result.is_anomaly %}
+        <div class="alert-list">
+          <div class="alert-item critical">
+            <div class="alert-dot critical breathe"></div>
+            <div class="alert-msg">Unusual demand pattern detected. Investigate transmission lines and substations immediately.</div>
+          </div>
+          <div class="alert-item warning">
+            <div class="alert-dot warning"></div>
+            <div class="alert-msg">Activate backup generation reserves and alert grid operators.</div>
+          </div>
+          <div class="alert-item warning">
+            <div class="alert-dot warning"></div>
+            <div class="alert-msg">Check for equipment malfunction or unplanned load switching events.</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="alert-item info">
+          <div class="alert-dot info"></div>
+          <div class="alert-msg">All demand patterns within expected normal range. Grid operating stably.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="glass-card mb-4 animate-fade-up delay-3">
+      <div class="card-body-gg" style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:16px;opacity:.4"><i class="fas fa-radar"></i></div>
+        <div style="color:var(--text-muted);font-size:14px">Enter a demand reading and click <strong style="color:var(--red)">Scan for Anomaly</strong></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="glass-card animate-fade-up delay-4">
+      <div class="card-header-gg">
+        <div class="card-icon icon-red"><i class="fas fa-chart-line"></i></div>
+        <div class="card-title">Anomaly Detection Visualization</div>
+      </div>
+      <div class="card-body-gg">
+        <img src="{{ url_for('static', filename='charts/anomaly_chart.png') }}"
+             class="chart-img" alt="Anomaly Chart">
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if recent_anomalies %}
+<div class="glass-card mt-4 animate-fade-up delay-3">
+  <div class="card-header-gg">
+    <div class="card-icon icon-red"><i class="fas fa-list"></i></div>
+    <div class="card-title">Recent Detected Anomalies</div>
+    <div class="ms-auto" style="font-size:12px;color:var(--text-muted)">{{ recent_anomalies|length }} records</div>
+  </div>
+  <div class="card-body-gg" style="padding:0">
+    <div class="table-scroll">
+      <table class="table-gg">
+        <thead>
+          <tr>
+            <th>Timestamp</th><th>Type</th><th>Demand (MW)</th><th>Severity</th><th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in recent_anomalies %}
+          <tr>
+            <td style="font-family:monospace;font-size:12px">{{ a.created_at }}</td>
+            <td><span class="badge-gg badge-warning">{{ a.anomaly_type }}</span></td>
+            <td style="color:var(--cyan)">{{ "{:,.1f}".format(a.demand_value) }}</td>
+            <td><span class="badge-gg badge-{{ 'high' if a.severity in ['High','Critical'] else 'medium' }}">{{ a.severity }}</span></td>
+            <td style="color:var(--text-muted);font-size:12px">{{ a.description[:60] }}…</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function loadPreset(type) {
+  const vals = {
+    normal: {demand_mw:14000, lag_1h:13800, lag_24h:14200, roll_mean_24h:13900, roll_std_24h:280, demand_change:50},
+    spike:  {demand_mw:26000, lag_1h:13800, lag_24h:14200, roll_mean_24h:13900, roll_std_24h:280, demand_change:5000},
+    drop:   {demand_mw:5000,  lag_1h:13800, lag_24h:14200, roll_mean_24h:13900, roll_std_24h:280, demand_change:-4000},
+  };
+  const v = vals[type];
+  if (!v) return;
+  Object.keys(v).forEach(k => {
+    const el = document.querySelector(`[name="${k}"]`);
+    if (el) el.value = v[k];
+  });
+}
+</script>
+{% endblock %}
