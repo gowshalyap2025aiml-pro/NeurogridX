@@ -207,7 +207,7 @@ GridGuardianAI/
 ## 👤 Author
 
 Built for AI/ML Hackathon — GridGuardian AI  
-Solo Developer Submission
+Gowshalya P
 
 ---
 
